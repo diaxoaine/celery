@@ -624,7 +624,7 @@ class test_ControlPanel:
         finally:
             worker_state.task_ready(request)
 
-    def test_revoke_uses_task_backend_for_known_request(self):
+    def test_repeated_revoke_uses_task_backend_for_known_request(self):
         # Tasks may override their backend. Store the immediate REVOKED state
         # through the request's own backend without passing request context;
         # chord bookkeeping remains deferred to the normal request path.
@@ -638,8 +638,9 @@ class test_ControlPanel:
         try:
             with patch.object(state.app.backend, 'mark_as_revoked') as mar:
                 control.revoke(state, tid)
-            task_backend.mark_as_revoked.assert_called_once_with(
-                tid, reason='revoked', store_result=True)
+                control.revoke(state, tid)
+            assert task_backend.mark_as_revoked.call_count == 2
+            task_backend.mark_as_revoked.assert_called_with(tid, reason='revoked', store_result=True)
             mar.assert_not_called()
         finally:
             worker_state.task_ready(request)
