@@ -215,11 +215,28 @@ def _revoke(state, task_ids, terminate=False, signal=None, **kwargs):
     size = len(task_ids)
     terminated = set()
 
+    # Repeating the control command must not repeat the chord bookkeeping
+    # for members that were already accounted for.
+    unrevoked_ids = {
+        task_id for task_id in task_ids if task_id not in worker_state.revoked
+    }
     worker_state.revoked.update(task_ids)
 
+    # Tasks may override their backend. Store the immediate REVOKED state
+    # through the request's own backend when available. Tasks without a
+    # selected local request fall back to the app backend. Chord bookkeeping
+    # is deferred to the request's normal revoke path.
+    requests_by_id = {
+        request.id: request
+        for request in _find_requests_by_id(unrevoked_ids)
+        if terminate or request not in worker_state.active_requests
+    }
+
     for task_id in task_ids:
+        request = requests_by_id.get(task_id)
+        backend = request.task.backend if request is not None else state.app.backend
         try:
-            state.app.backend.mark_as_revoked(task_id, reason='revoked', store_result=True)
+            backend.mark_as_revoked(task_id, reason='revoked', store_result=True)
         except Exception as exc:
             logger.warning('Failed to mark task %s as revoked in backend: %s', task_id, exc)
 
