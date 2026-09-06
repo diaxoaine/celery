@@ -224,8 +224,7 @@ def _revoke(state, task_ids, terminate=False, signal=None, **kwargs):
 
     # Tasks may override their backend. Store the immediate REVOKED state
     # through the request's own backend when available. Tasks without a
-    # selected local request fall back to the app backend. Chord bookkeeping
-    # is deferred to the request's normal revoke path.
+    # selected local request fall back to the app backend.
     requests_by_id = {
         request.id: request
         for request in _find_requests_by_id(unrevoked_ids)
